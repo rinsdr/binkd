@@ -240,6 +240,9 @@ $(OBJDIRS):
 
 $(OBJS) $(RESOBJS): | $(OBJDIRS)
 
+# Defines set here change type sizes (time_t, off_t), rebuild all if changed
+$(OBJS) $(RESOBJS): $(firstword $(MAKEFILE_LIST))
+
 $(OUTDIR)/$(BINKDEXE): $(OBJS) $(RESOBJS)
 	@echo Linking $(BINKDEXE)...
 	@$(CC) $(CFLAGS) $(LDFLAGS) $(L_DIRS) -o $@ $(OBJS) $(RESOBJS) $(LIBS)
