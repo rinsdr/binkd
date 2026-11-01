@@ -154,12 +154,16 @@ BINKDTYPE := $(BINKDTYPE), perl
 endif
 endif
 
-# 64-bit time_t ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# 64-bit off_t and time_t +++++++++++++++++++++++++++++++++++++++++++++++++++++
+# off_t is 32-bit in MinGW without _FILE_OFFSET_BITS=64, even for Win64.
 # 64-bit time_t, time(), stat(), utime() etc. on 32-bit Windows (64-bit one
 # has it by default). Not for binkd9x: Win9x msvcrt.dll has no _time64()
-# family. Not with perl: time_t must be the same as in libperl.
-ifeq ($(BINKD9X)$(PERL),)
+# family. Not with perl: types must be the same as in libperl.
+ifndef PERL
+CDEFS += -D_FILE_OFFSET_BITS=64 -DHAVE_FSEEKO
+ifndef BINKD9X
 CDEFS += -D_TIME_BITS=64
+endif
 endif
 
 # zlib, bzlib2 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

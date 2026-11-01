@@ -179,9 +179,18 @@ int create_sem_file (char *name, int errloglevel)
 #endif
 
 #ifndef HAVE_LOCALTIME_R
+/* gmtime() and localtime() return NULL if time can't be converted */
+static void copy_tm(struct tm *tm, const struct tm *src)
+{
+  if (src)
+    memcpy(tm, src, sizeof(*tm));
+  else
+    memset(tm, 0, sizeof(*tm));
+}
+
 struct tm *safe_gmtime(time_t *t, struct tm *tm)
 {
-  threadsafe(memcpy(tm, gmtime(t), sizeof(*tm)));
+  threadsafe(copy_tm(tm, gmtime(t)));
   return tm;
 }
 #endif
@@ -264,7 +273,7 @@ struct tm *safe_localtime(time_t *t, struct tm *tm)
 #else
 struct tm *safe_localtime(time_t *t, struct tm *tm)
 {
-  threadsafe(memcpy(tm, localtime(t), sizeof(*tm)));
+  threadsafe(copy_tm(tm, localtime(t)));
   return tm;
 }
 #endif

@@ -3355,7 +3355,7 @@ void protocol (SOCKET socket_in, SOCKET socket_out, FTN_NODE *to, FTN_ADDR *fa,
         state.io_error = 1;
         if (!binkd_exit)
         {
-          Log (1, "select: %s (args: %i %i)", save_err, socket_in, tv.tv_sec);
+          Log (1, "select: %s (args: %i %i)", save_err, socket_in, (int) tv.tv_sec);
           if (to)
             bad_try (&to->fa, save_err, BAD_IO, config);
         }
