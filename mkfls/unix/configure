@@ -5144,6 +5144,12 @@ fi
    ;;
 esac
 
+case x$WITH_PERL:$ac_cv_sys_file_offset_bits in
+  xyes:*) ;;
+  x*:64) $as_echo "#define _TIME_BITS 64" >>confdefs.h
+ ;;
+esac
+
 
 # Check whether --with-zlib was given.
 if test "${with_zlib+set}" = set; then :

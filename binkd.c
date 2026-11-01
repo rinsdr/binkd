@@ -557,6 +557,7 @@ int main (int argc, char *argv[])
               " ipv6"
 #endif
               "\n");
+      printf ("Build properties: time_t %u-bit\n", (unsigned) sizeof (time_t) * 8);
     }
     exit (0);
   }

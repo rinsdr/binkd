@@ -39,7 +39,7 @@ int tfile_cmp (TFILE *a, char *netname, boff_t size, time_t time)
   if (sizediff)
     return sizediff > 0 ? 1 : -1;
   if (a->time != time)
-    return a->time - time;
+    return a->time > time ? 1 : -1;
   return 0;
 }
 

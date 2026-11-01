@@ -196,13 +196,13 @@ struct tm *safe_localtime(time_t *t, struct tm *tm);
 int tz_off(time_t t, int tzoff);
 
 
-/* Safe string to long conversion: negative converts using atol,
- * positive: strtoul();
- * leading spaces - impossibled!
- * Return error message in msg[0] (static string) and set errno.
- * errno set to zero if no error
+/* Safe unixtime string to time_t conversion.
+ * Times before 1970 are accepted both with '-' and as unsigned two's
+ * complement (2^64-x).
+ * Return error message in msg[0] (static string), msg[0] is untouched
+ * if no error
  */
-long safe_atol(char* str, char** msg);
+time_t safe_atotime(const char *str, char **msg);
 
 /* Return last directory separator in file name, or NULL if no path present */
 char * last_slash(char *s);
