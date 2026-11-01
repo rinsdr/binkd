@@ -394,20 +394,21 @@ FTNQ *q_scan_boxes (FTNQ *q, FTN_ADDR *fa, int n, int to, BINKD_CONFIG *config)
 void process_hld (FTN_ADDR *fa, char *path, BINKD_CONFIG *config)
 {
   FTN_NODE *node;
-  long hold_until_tmp;
+  char buf[32];
 
   if ((node = get_node_info(fa, config)) != NULL)
   {
     FILE *f;
 
     if ((f = fopen (path, "r")) == NULL ||
-	fscanf (f, "%ld", &hold_until_tmp) != 1)
+	fgets (buf, sizeof (buf), f) == NULL)
     {
       node->hold_until = 0;
     }
     else
     {
-      node->hold_until = (time_t)hold_until_tmp;
+      buf[strcspn (buf, " \t\r\n")] = '\0';
+      node->hold_until = safe_atotime (buf, NULL);
     }
     if (f)
       fclose (f);
@@ -679,7 +680,7 @@ FTNQ *q_add_file (FTNQ *q, char *filename, FTN_ADDR *fa1, char flvr, char action
 
     if (type == 's')
     { q->size = (boff_t) strtoumax(argv[1], NULL, 10);
-      q->time = safe_atol(argv[2], NULL);
+      q->time = safe_atotime(argv[2], NULL);
       strnzcpy (q->path, argv[0], MAXPATHLEN);
     }
     else
@@ -1038,7 +1039,7 @@ void hold_node (FTN_ADDR *fa, time_t hold_until, BINKD_CONFIG *config)
     strnzcat (buf, ".hld", sizeof (buf));
     if ((f = fopen (buf, "w")) != NULL)
     {
-      fprintf (f, "%lu", (unsigned long int) hold_until);
+      fprintf (f, "%" PRIuMAX, (uintmax_t) hold_until);
       fclose (f);
       if ((fn = get_node_info (fa, config)) != NULL)
 	fn->hold_until = hold_until;

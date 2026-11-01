@@ -865,36 +865,52 @@ char *makeinboundcase (char *s, enum inbcasetype inbcase)
   return s;
 }
 
-/* Safe string to long conversion: negative converts using atol,
- * positive: strtoul();
- * leading spaces - impossibled!
- * Return error message in msg[0] (static string) and set errno.
- * errno set to zero if no error
+/* Safe unixtime string to time_t conversion.
+ * FTS-1026 defines unixtime as unsigned, so times before 1970 are sent
+ * by binkd as two's complement converted to unsigned (2^64-x).
+ * Values with '-' are accepted too.
+ * Return error message in msg[0] (static string), msg[0] is untouched
+ * if no error. Return 0 if the value is out of range.
  */
-long safe_atol(char* str, char** msg){
-  unsigned long ul=0;
-  long l;
+time_t safe_atotime(const char *str, char **msg)
+{
+  const char *p = str;
+  uintmax_t u = 0;
+  int neg;
 
-  if(str){
-    errno = 0;
-    if( str[0]=='-' ){  /* negative value */
-      l = atol(str);
-      if(errno==ERANGE && msg){
-         *msg = "Out of range: number too small";
-      }
-      return l;
-    }
-    ul = strtoul(str,NULL,10);
-    if(errno==ERANGE && msg){
-       *msg = "Out of range: number too big";
-    }
-  }else{
-    errno = EINVAL;
-    if (msg) {
-      *msg = "Invalid argument (NULL instead string)";
-   }
+  if (str == NULL)
+  {
+    if (msg) *msg = "Invalid argument (NULL instead string)";
+    return 0;
   }
-  return (long)ul;
+  if ((neg = (*p == '-')) != 0)
+    p++;
+  if (*p < '0' || *p > '9')
+  {
+    if (msg) *msg = "Not a number";
+    return 0;
+  }
+  for (; *p >= '0' && *p <= '9'; p++)
+  {
+    if (u > ((uintmax_t)-1 - (*p - '0')) / 10)
+    {
+      if (msg) *msg = neg ? "Out of range: number too small" : "Out of range: number too big";
+      return 0;
+    }
+    u = u * 10 + (*p - '0');
+  }
+  if (neg)
+  {
+    if (u > ((uintmax_t)-1 >> 1) + 1)
+    {
+      if (msg) *msg = "Out of range: number too small";
+      return 0;
+    }
+    u = 0 - u; /* -x -> 2^64-x, as if sent unsigned */
+  }
+  if (*p && msg)
+    *msg = "Trailing garbage after number";
+  return (time_t)u;
 }
 
 /* Return last directory separator in file name, or NULL if no path present */
@@ -994,7 +1010,7 @@ int tz_off(time_t t, int tzoff)
   gt = mktime(&tm);
   safe_localtime (&t, &tm);
   tm.tm_isdst = 0;
-  return (int)(((long)mktime(&tm)-(long)gt)/60);
+  return (int)((mktime(&tm)-gt)/60);
 }
 
 #ifdef WIN32

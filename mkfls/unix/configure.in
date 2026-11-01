@@ -404,6 +404,13 @@ case x$do_perl in
    ;;
 esac
 
+dnl 64-bit time_t on 32-bit glibc 2.34+, it requires _FILE_OFFSET_BITS=64.
+dnl Not with perl: time_t must be the same as in libperl, perl ccopts set it.
+case x$WITH_PERL:$ac_cv_sys_file_offset_bits in
+  xyes:*) ;;
+  x*:64) AC_DEFINE(_TIME_BITS, 64) ;;
+esac
+
 AC_ARG_WITH(zlib,
             [  --with-zlib[[=path]]      zlib compression (default auto)],
             [do_zlib=$withval], 

@@ -1555,7 +1555,7 @@ static void setup_session(STATE *state, int lvl) {
   /* lvl 1 */
   if (lvl >= 1 && state->perl_set_lvl < 1) {
     VK_ADD_intz(sv, "call", state->to != NULL);
-    VK_ADD_intz(sv, "start", (int)state->start_time);
+    VK_ADD_intz(sv, "start", state->start_time);
     VK_ADD_str (sv, "host", state->peer_name);
     VK_ADD_str (sv, "ip", state->ipaddr);
     VK_ADD_str (sv, "our_ip", state->our_ip);

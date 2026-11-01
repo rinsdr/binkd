@@ -188,7 +188,7 @@ static int find_tmp_name (char *s, TFILE *file, STATE *state, BINKD_CONFIG *conf
         else if (i >= 0 && !strcmp (w[0], file->netname))
         {
           if (file->size == (boff_t) strtoumax (w[1], NULL, 10) &&
-              (file->time & ~1) == (time_t) (safe_atol (w[2], NULL) & ~1) &&
+              (file->time & ~1) == (safe_atotime (w[2], NULL) & ~1) &&
               i < state->nallfa)
           { /* non-destructive skip file from busy aka */
             if (i >= state->nfa)

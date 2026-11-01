@@ -1928,10 +1928,9 @@ static int start_file_recv (STATE *state, char *args, int sz, BINKD_CONFIG *conf
       state->in.start = safe_time();
       strnzcpy (state->in.netname, argv[0], MAX_NETNAME);
       state->in.size = (boff_t)strtoumax (argv[1], NULL, 10);
-      errno=0;
-      state->in.time = safe_atol (argv[2], &errmesg);
+      state->in.time = safe_atotime (argv[2], &errmesg);
       if (errmesg) {
-          Log ( 1, "File time parsing error: %s! (M_FILE \"%s %s %s %s\")", errmesg, argv[0], argv[1], argv[0], argv[2], argv[3] );
+          Log ( 1, "File time parsing error: %s! (M_FILE \"%s %s %s %s\")", errmesg, argv[0], argv[1], argv[2], argv[3] );
       }
     }
     offset = (boff_t) strtoumax (argv[3], NULL, 10);
@@ -2203,9 +2202,9 @@ static int GET (STATE *state, char *args, int sz, BINKD_CONFIG *config)
   if ((args = parse_msg_args (argc, argv, args, "M_GET", state)) != NULL)
   { {char *errmesg = NULL;
       fsize = (boff_t)strtoumax (argv[1], NULL, 10);
-      ftime = safe_atol (argv[2], &errmesg);
+      ftime = safe_atotime (argv[2], &errmesg);
       if(errmesg){
-        Log ( 1, "File time parsing error: %s! (M_GET \"%s %s %s %s\")", errmesg, argv[0], argv[1], argv[0], argv[2], argv[3] );
+        Log ( 1, "File time parsing error: %s! (M_GET \"%s %s %s %s\")", errmesg, argv[0], argv[1], argv[2], argv[3] );
       }
     }
     /* Check if the file was already sent */
@@ -2341,10 +2340,10 @@ static int SKIP (STATE *state, char *args, int sz, BINKD_CONFIG *config)
     {
       char *errmesg=NULL;
       fsize = (boff_t)strtoumax (argv[1], NULL, 10);
-      ftime = safe_atol (argv[2], &errmesg);
+      ftime = safe_atotime (argv[2], &errmesg);
       if (errmesg)
       {
-        Log ( 1, "File time parsing error: %s! (M_SKIP \"%s %s %s\")", errmesg, argv[0], argv[1], argv[0], argv[2] );
+        Log ( 1, "File time parsing error: %s! (M_SKIP \"%s %s %s\")", errmesg, argv[0], argv[1], argv[2] );
       }
     }
     for (n = 0; n < state->n_sent_fls; ++n)
@@ -2409,11 +2408,10 @@ static int GOT (STATE *state, char *args, int sz, BINKD_CONFIG *config)
     else
       status = saved_args;
     fsize = (boff_t) strtoumax (argv[1], NULL, 10);
-    errno = 0;
-    ftime = safe_atol (argv[2], &errmesg);
+    ftime = safe_atotime (argv[2], &errmesg);
     if (errmesg)
     {
-      Log ( 1, "File time parsing error: %s! (M_GOT \"%s %s %s\")", errmesg, argv[0], argv[1], argv[0], argv[2] );
+      Log ( 1, "File time parsing error: %s! (M_GOT \"%s %s %s\")", errmesg, argv[0], argv[1], argv[2] );
     }
     if (!tfile_cmp (&state->out, argv[0], fsize, ftime))
     {
