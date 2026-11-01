@@ -211,7 +211,7 @@ static int cmp_filebox_files (FTNQ *a, FTNQ *b)
   int w_b = weight_by_name (b->path);
 
   if (w_a - w_b == 0)
-    return a->time - b->time;
+    return a->time == b->time ? 0 : (a->time > b->time ? 1 : -1);
   else
     return w_b - w_a;
 }

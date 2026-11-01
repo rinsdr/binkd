@@ -179,13 +179,19 @@ int create_sem_file (char *name, int errloglevel)
 #endif
 
 #ifndef HAVE_LOCALTIME_R
-/* gmtime() and localtime() return NULL if time can't be converted */
+/* gmtime() and localtime() return NULL if time can't be converted,
+ * use 1970-01-01 00:00:00 then */
 static void copy_tm(struct tm *tm, const struct tm *src)
 {
   if (src)
     memcpy(tm, src, sizeof(*tm));
   else
+  {
     memset(tm, 0, sizeof(*tm));
+    tm->tm_mday = 1;
+    tm->tm_year = 70;
+    tm->tm_wday = 4;
+  }
 }
 
 struct tm *safe_gmtime(time_t *t, struct tm *tm)
