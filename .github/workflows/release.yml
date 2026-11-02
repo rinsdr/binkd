@@ -1,9 +1,11 @@
 name: Release
 
 # Push a tag v* to build the binaries and publish them as a GitHub release.
-# A manual run only builds them and keeps the zips as workflow artifacts.
+# A push to master or a manual run only builds them and keeps the zips as
+# workflow artifacts.
 on:
   push:
+    branches: [master]
     tags: ['v*']
   workflow_dispatch:
 
