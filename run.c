@@ -23,6 +23,9 @@
 #include "run.h"
 #include "tools.h"
 #include "sem.h"
+#ifdef WIN32
+#include "nt/w32tools.h"
+#endif
 
 #ifdef UNIX
 #define SHELL "/bin/sh"
