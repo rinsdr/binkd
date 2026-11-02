@@ -1,7 +1,8 @@
 name: Release
 
 # Push a tag v* to build the binaries and publish them as a GitHub release.
-# A manual run only builds them and keeps the zips as workflow artifacts.
+# A manual run (on master only) just builds them and keeps the zips as
+# workflow artifacts.
 on:
   push:
     tags: ['v*']
@@ -12,6 +13,8 @@ permissions:
 
 jobs:
   build:
+    name: build (${{ matrix.target.name }}${{ matrix.perl && '-perl' || '' }}${{ matrix.zlib && '-zlib' || '' }})
+    needs: build-perl
     runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
@@ -20,24 +23,60 @@ jobs:
           - { name: win32, triplet: i686-w64-mingw32, pkg: i686 }
           - { name: win64, triplet: x86_64-w64-mingw32, pkg: x86-64 }
         zlib: ['', '1']
+        # Without this axis the includes below would be merged into the
+        # zlib builds instead of being added as separate ones
+        perl: ['']
+        include:
+          - target: { name: win32, triplet: i686-w64-mingw32, pkg: i686 }
+            zlib: '1'
+            perl: '1'
+          - target: { name: win64, triplet: x86_64-w64-mingw32, pkg: x86-64 }
+            zlib: '1'
+            perl: '1'
     env:
       TRIPLET: ${{ matrix.target.triplet }}
       ZLIB: ${{ matrix.zlib }}
+      PERL: ${{ matrix.perl }}
     steps:
       - uses: actions/checkout@v7
 
+      # perl host part is C++: link it with posix thread model gcc
+      # (winpthreads), as Strawberry Perl does. C++ exception handling of
+      # win32 thread model one (libgcc gthr-win32) needs GetThreadId() since
+      # gcc 13, Windows XP doesn't have it.
       - name: Install MinGW
         run: |
+          if [ -n "$PERL" ]; then
+            gcc=gcc-mingw-w64-${{ matrix.target.pkg }}-posix
+            gcc="$gcc g++-mingw-w64-${{ matrix.target.pkg }}-posix"
+            echo "CC=$TRIPLET-gcc-posix" >> "$GITHUB_ENV"
+          else
+            gcc=gcc-mingw-w64-${{ matrix.target.pkg }}-win32
+            echo "CC=$TRIPLET-gcc" >> "$GITHUB_ENV"
+          fi
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            gcc-mingw-w64-${{ matrix.target.pkg }}-win32 libz-mingw-w64-dev
+          sudo apt-get install -y --no-install-recommends $gcc libz-mingw-w64-dev
+
+      - uses: actions/download-artifact@v8
+        if: matrix.perl
+        with:
+          name: perl-${{ matrix.target.name }}
+          path: ${{ runner.temp }}/perl
 
       - name: Build
         run: |
+          if [ -n "$PERL" ]; then
+            lib=$(basename "$RUNNER_TEMP"/perl/lib/CORE/libperl*s.a .a)
+            lib=${lib#lib}
+            # perl is built with 64-bit time_t, see build-perl
+            PERL_OPTS="PERL=1 PERL_TIME64=1"
+            PERL_OPTS="$PERL_OPTS PERL_BASE=$RUNNER_TEMP/perl PERL_LIB=${lib%s}"
+          fi
           make -f mkfls/nt95-mingw/Makefile \
-            CC=$TRIPLET-gcc WINDRES=$TRIPLET-windres \
-            FTS5004=1 BW_LIM=1 ${ZLIB:+ZLIB=1}
+            CC=$CC WINDRES=$TRIPLET-windres STATIC=1 \
+            FTS5004=1 BW_LIM=1 ${ZLIB:+ZLIB=1} $PERL_OPTS
 
+      # zlib and perl are linked statically, the exe is all
       - name: Package
         run: |
           ver=$(awk '
@@ -47,20 +86,96 @@ jobs:
             $2 == "SUFFIX"     { gsub(/"/, "", $3); suffix = $3 }
             $2 == "PATCHLEVEL" { pl = $3 }
             END { print name "-" major "." minor suffix "-" pl }' Config.h)
-          zip=$ver-${{ matrix.target.name }}${ZLIB:+-zlib}.zip
+          zip=$ver-${{ matrix.target.name }}${PERL:+-perl}${ZLIB:+-zlib}.zip
           exe=$(find bin -name '*.exe')
           $TRIPLET-objdump -p "$exe" | grep 'DLL Name'
-          mkdir dist
-          cp "$exe" dist/
-          if [ -n "$ZLIB" ]; then cp /usr/$TRIPLET/lib/zlib1.dll dist/; fi
-          (cd dist && zip -9 "../$zip" *)
+          zip -9 -j "$zip" "$exe"
           unzip -l "$zip"
           echo "ZIP=$zip" >> "$GITHUB_ENV"
 
+      # The zip itself, not zipped once more
       - uses: actions/upload-artifact@v7
         with:
-          name: ${{ env.ZIP }}
           path: ${{ env.ZIP }}
+          archive: false
+          if-no-files-found: error
+
+  # Perl can't be cross-compiled for Windows: build it natively with MSYS2
+  # MinGW gcc (msvcrt), static library only, binkd is linked with it above.
+  build-perl:
+    name: build-perl (${{ matrix.target.name }})
+    # The other jobs depend on this one and are skipped with it
+    if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/master'
+    runs-on: windows-2025
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          # perl 5.32 as in the last 32-bit Strawberry Perl, known to work
+          # on Windows XP, with 64-bit IV as there. It predates C23 (default
+          # since gcc 15). No SSE2 (default of MSYS2 i686 gcc): XP may run on
+          # CPUs without it.
+          - name: win32
+            msystem: MINGW32
+            pkg: i686
+            perl: 5.32.1
+            perl_sha256: 03b693901cd8ae807231b1787798cf1f2e0b8a56218d07b7da44f784a7caeb2c
+            perl_opts: '"EXTRACFLAGS=-std=gnu99 -march=i686" USE_64_BIT_INT=define'
+          - name: win64
+            msystem: MINGW64
+            pkg: x86_64
+            perl: 5.44.0
+            perl_sha256: 3b855066b92491cb40e86affb1ca57d1a388aa43e51b91c7806a32c2f65f96c3
+            perl_opts: ''
+    env:
+      PERL_VERSION: ${{ matrix.target.perl }}
+      PERL_SHA256: ${{ matrix.target.perl_sha256 }}
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.target.msystem }}
+          update: true
+          # No i686 make in MSYS2 anymore, any make will do
+          install: >-
+            mingw-w64-${{ matrix.target.pkg }}-gcc
+            mingw-w64-x86_64-make
+
+      - name: Download perl
+        run: |
+          echo "CC_DIR=$(cygpath -w "$MINGW_PREFIX")" >> "$GITHUB_ENV"
+          echo "MAKE_DIR=$(cygpath -w /mingw64/bin)" >> "$GITHUB_ENV"
+          cd "$RUNNER_TEMP"
+          curl -sSLf -o perl.tar.gz https://www.cpan.org/src/5.0/perl-$PERL_VERSION.tar.gz
+          echo "$PERL_SHA256 *perl.tar.gz" | sha256sum -c -
+          tar xzf perl.tar.gz
+
+      # win32/GNUmakefile runs the commands with cmd.exe. Minimal PATH: the
+      # runner has Strawberry Perl with its own gcc in PATH.
+      - name: Build perl
+        shell: cmd
+        run: |
+          set PATH=%CC_DIR%\bin;%MAKE_DIR%;%SystemRoot%\system32;%SystemRoot%
+          cd /d %RUNNER_TEMP%\perl-%PERL_VERSION%\win32 || exit /b 1
+          rem Only the static perl and what it needs, no extensions: binkd
+          rem doesn't use them, and some of perl 5.32 ones don't build with
+          rem current mingw-w64. No static Win32CORE: its objects are added
+          rem with "ar q lib *.o", but this ar doesn't expand wildcards.
+          rem 64-bit time_t on Win32 (Win64 has it anyway), binkd is built
+          rem with PERL_TIME64=1 to match.
+          mingw32-make -j4 -f GNUmakefile CCHOME=%CC_DIR% PLMAKE=mingw32-make ^
+            STATIC_EXT= BUILDOPTEXTRA=-D_TIME_BITS=64 ${{ matrix.target.perl_opts }} ^
+            ..\perl-static.exe || exit /b 1
+          cd .. || exit /b 1
+          perl-static.exe -e "print qq(perl $]\n)" || exit /b 1
+          xcopy /e /i /q /y lib\CORE %RUNNER_TEMP%\perl\lib\CORE || exit /b 1
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: perl-${{ matrix.target.name }}
+          path: ${{ runner.temp }}\perl
           if-no-files-found: error
 
   release:
@@ -73,7 +188,10 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           path: dist
+          pattern: '*.zip'
           merge-multiple: true
+          # The artifacts are the zips themselves, don't unpack them
+          skip-decompress: true
 
       - name: Create release
         env:
