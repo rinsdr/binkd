@@ -30,11 +30,12 @@ documentation and/or software.
 /* RFC 1321              MD5 Message-Digest Algorithm            April 1992 */
 /* PROTOTYPES should be set to one if and only if the compiler supports
   function argument prototyping.
-  The following makes PROTOTYPES default to 0 if it has not already
-  been defined with C compiler flags.
+  The following makes PROTOTYPES default to 1 if it has not already
+  been defined with C compiler flags: in C23 (default since gcc 15) an
+  empty list means no arguments, so without prototypes the calls fail.
  */
 #ifndef PROTOTYPES
-#define PROTOTYPES 0
+#define PROTOTYPES 1
 #endif
 
 /* POINTER defines a generic pointer type */
