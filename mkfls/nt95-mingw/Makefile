@@ -5,8 +5,8 @@
 #   mingw32-make -f mkfls/nt95-mingw/Makefile [options]
 #
 # Options: [DEBUG=1] [DEBUGCHILD=1] [BINKD9X=1] [IPV6=1] [FTS5004=1]
-#          [BW_LIM=1] [AF_FORCE=1] [PERL=1] [PERLDL=1]
-#          [ZLIB=1] [BZLIB2=1] [ZLIBDL=1]
+#          [BW_LIM=1] [AF_FORCE=1] [PERL=1] [PERLDL=1] [PERL_TIME64=1]
+#          [ZLIB=1] [BZLIB2=1] [ZLIBDL=1] [STATIC=1]
 #
 # On Windows the commands are run by cmd.exe, MSYS is not required.
 # On other systems (cross-compiling) POSIX shell commands are used, e.g.:
@@ -147,22 +147,42 @@ else
 # libperlNNN.a or perlNNN.lib -> perlNNN
 PERL_LIB  ?= $(shell perl -MConfig -e $(Q)($$_ = $$Config{libperl}) =~ s/^lib//; s/\.(a|lib)$$//; print$(Q))
 L_DIRS    += -L"$(PERL_INCL)"
-LIBS      += -l$(PERL_LIB)
 BINKDNAME := $(BINKDNAME)-perl
 OUTDIR    := $(OUTDIR)-perl
 BINKDTYPE := $(BINKDTYPE), perl
+ifdef STATIC
+# Link perl static library libperlNNNs.a (built by BUILD_STATIC=define or
+# perl-static.exe target of win32/GNUmakefile) instead of perlNNN.dll import
+# library. Its users are built with -DPERLDLL (see perlmainst there), it
+# needs perl's system libraries and libstdc++ (perl host is C++).
+CDEFS     += -DPERLDLL
+LIBS      += -l$(PERL_LIB)s -lstdc++ -lmoldname -lgdi32 -lwinspool -lcomdlg32 \
+             -lole32 -loleaut32 -lnetapi32 -luuid -lws2_32 -lmpr -lwinmm     \
+             -lversion -lodbc32 -lodbccp32 -lcomctl32
+else
+LIBS      += -l$(PERL_LIB)
+endif
 endif
 endif
 
 # 64-bit off_t and time_t +++++++++++++++++++++++++++++++++++++++++++++++++++++
 # off_t is 32-bit in MinGW without _FILE_OFFSET_BITS=64, even for Win64.
+# Safe with perl built with USE_LARGE_FILES (default for Win32 perl): its
+# Stat_t is struct _stati64 or w32_stat then, and doesn't depend on off_t.
+CDEFS += -D_FILE_OFFSET_BITS=64 -DHAVE_FSEEKO
 # 64-bit time_t, time(), stat(), utime() etc. on 32-bit Windows (64-bit one
 # has it by default). Not for binkd9x: Win9x msvcrt.dll has no _time64()
-# family. Not with perl: types must be the same as in libperl.
-ifndef PERL
-CDEFS += -D_FILE_OFFSET_BITS=64 -DHAVE_FSEEKO
+# family. With perl only if perl is built with -D_TIME_BITS=64 too (set
+# PERL_TIME64=1 then): time_t must be the same as in libperl, it changes the
+# layout of perl interpreter struct (PL_statcache).
 ifndef BINKD9X
-CDEFS += -D_TIME_BITS=64
+ifdef PERL
+ifdef PERL_TIME64
+CDEFS  += -D_TIME_BITS=64
+OPTDIR += -time64
+endif
+else
+CDEFS  += -D_TIME_BITS=64
 endif
 endif
 
@@ -211,6 +231,15 @@ ifdef ZLIBDL
 CDEFS += -DZLIBDL
 SRCS  += zlibdl.c
 endif
+endif
+
+# static linking +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Link zlib, bzlib2, perl (see above) and gcc runtime statically: no dlls but
+# the system ones are needed.
+ifdef STATIC
+LDFLAGS   += -static
+OPTDIR    += -static
+BINKDTYPE := $(BINKDTYPE), static
 endif
 
 # =============================================================================
