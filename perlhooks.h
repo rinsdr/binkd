@@ -26,6 +26,7 @@ extern char *perl_subnames[];  /* names for perl subs */
 extern MUTEXSEM perlsem;
 #endif
 
+const char *perl_version(void);        /* perl version binkd is built with */
 int perl_init(char *, BINKD_CONFIG *, int); /* init root perl, parse hooks file, return success */
 void perl_done(BINKD_CONFIG *, int);   /* deinit perl */
 #ifdef HAVE_THREADS

@@ -557,7 +557,11 @@ int main (int argc, char *argv[])
               " ipv6"
 #endif
               "\n");
-      printf ("Build properties: time_t %u-bit\n", (unsigned) sizeof (time_t) * 8);
+      printf ("Build properties: time_t %u-bit", (unsigned) sizeof (time_t) * 8);
+#ifdef WITH_PERL
+      printf (", perl %s", perl_version());
+#endif
+      printf ("\n");
     }
     exit (0);
   }

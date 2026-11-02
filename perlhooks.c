@@ -169,6 +169,12 @@
 #include <perl.h>
 #include <XSUB.h>
 
+/* perl version binkd is built with */
+const char *perl_version(void)
+{
+  return MYVER_S(PERL_REVISION) "." MYVER_S(PERL_VERSION) "." MYVER_S(PERL_SUBVERSION);
+}
+
 /* perl prior to 5.6 support */
 #ifndef get_sv
 #  define get_sv perl_get_sv
