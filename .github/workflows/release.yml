@@ -1,0 +1,83 @@
+name: Release
+
+# Push a tag v* to build the binaries and publish them as a GitHub release.
+# A manual run only builds them and keeps the zips as workflow artifacts.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-26.04
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - { name: win32, triplet: i686-w64-mingw32, pkg: i686 }
+          - { name: win64, triplet: x86_64-w64-mingw32, pkg: x86-64 }
+        zlib: ['', '1']
+    env:
+      TRIPLET: ${{ matrix.target.triplet }}
+      ZLIB: ${{ matrix.zlib }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install MinGW
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc-mingw-w64-${{ matrix.target.pkg }}-win32 libz-mingw-w64-dev
+
+      - name: Build
+        run: |
+          make -f mkfls/nt95-mingw/Makefile \
+            CC=$TRIPLET-gcc WINDRES=$TRIPLET-windres \
+            FTS5004=1 BW_LIM=1 ${ZLIB:+ZLIB=1}
+
+      - name: Package
+        run: |
+          ver=$(awk '
+            $2 == "MYNAME"     { gsub(/"/, "", $3); name = $3 }
+            $2 == "MAJOR"      { major = $3 }
+            $2 == "MINOR"      { minor = $3 }
+            $2 == "SUFFIX"     { gsub(/"/, "", $3); suffix = $3 }
+            $2 == "PATCHLEVEL" { pl = $3 }
+            END { print name "-" major "." minor suffix "-" pl }' Config.h)
+          zip=$ver-${{ matrix.target.name }}${ZLIB:+-zlib}.zip
+          exe=$(find bin -name '*.exe')
+          $TRIPLET-objdump -p "$exe" | grep 'DLL Name'
+          mkdir dist
+          cp "$exe" dist/
+          if [ -n "$ZLIB" ]; then cp /usr/$TRIPLET/lib/zlib1.dll dist/; fi
+          (cd dist && zip -9 "../$zip" *)
+          unzip -l "$zip"
+          echo "ZIP=$zip" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.ZIP }}
+          path: ${{ env.ZIP }}
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/*.zip \
+            --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes
