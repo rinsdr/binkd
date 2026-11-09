@@ -7,6 +7,8 @@ INSTALL=@INSTALL@
 
 # prepend prefix to installed program names
 prefix=@prefix@
+exec_prefix=@exec_prefix@
+SBINDIR=@sbindir@
 CONFDIR=@sysconfdir@
 DATADIR=@prefix@/share
 MANDIR=$(DATADIR)/man
@@ -52,10 +54,10 @@ banner:
 	@./$(APPL) -v | $(AWK) '{ print $$2; }' > $@
 
 install: compile .version
-	./mkinstalldirs $(DESTDIR)$(prefix)/sbin
-	$(INSTALL) -s $(APPL) $(DESTDIR)$(prefix)/sbin/$(APPL)-`cat .version`
-	rm -f $(DESTDIR)$(prefix)/sbin/$(APPL)
-	(VER=`cat .version` ; cd $(DESTDIR)$(prefix)/sbin ; ln -s $(APPL)-$$VER $(APPL) )
+	./mkinstalldirs $(DESTDIR)$(SBINDIR)
+	$(INSTALL) -s $(APPL) $(DESTDIR)$(SBINDIR)/$(APPL)-`cat .version`
+	rm -f $(DESTDIR)$(SBINDIR)/$(APPL)
+	(VER=`cat .version` ; cd $(DESTDIR)$(SBINDIR) ; ln -s $(APPL)-$$VER $(APPL) )
 	./mkinstalldirs $(DESTDIR)$(MANDIR)/man8
 	$(INSTALL) -m 644 $(APPL).8 $(DESTDIR)$(MANDIR)/man8/$(APPL).8
 	./mkinstalldirs $(DESTDIR)$(CONFDIR)
